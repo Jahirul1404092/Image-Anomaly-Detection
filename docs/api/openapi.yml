@@ -1,0 +1,581 @@
+openapi: "3.0.2"
+info:
+  title: Anomaly Detection Product
+  version: "1.4.0"
+paths:
+  /addimage:
+    post:
+      summary: 学習画像 登録
+      description: |
+        学習に用いる画像を予めプロダクト管理下へ登録する。
+
+        - 画像ファイルフォーマット: PNG
+        - 画像サイズ: 224 × 224 以上、512 × 512 以下推奨
+      requestBody:
+        description: |
+          `group` 、`image_tag` は省略可能。`group` のデフォルト値は `good`。
+        content:
+          application/json:
+            schema:
+              type: "object"
+              properties:
+                image_path:
+                  type: array
+                  items:
+                    type: "string"
+                  description: 管理したい画像ファイルパスのリスト。
+                group:
+                  type: string
+                  enum:
+                    - good
+                    - bad
+                    - mask
+                  default: good
+                  description: |
+                    画像種別<br>
+                      - 異常なし: `good`<br>
+                      - 異常あり: `bad`<br>
+                      - マスク画像: `mask`
+                image_tag:
+                  type: string
+                  description: |
+                    画像を管理する際に使用可能なタグ。ユーザが任意の文字列を指定可能。
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  type: integer
+                  description: |
+                    画像ID。学習などに用いる画像を指定する際にこの値が使用される。
+        "400":
+          description: "不正リクエスト"
+        "401":
+          description: "認証エラー"
+        "500":
+          description: "アプリケーションエラー"
+
+  /listimages:
+    get:
+      summary: 学習画像 一覧取得
+      description: プロダクト管理下にある学習画像の一覧をJSON形式で取得する。
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    image_id:
+                      type: integer
+                      description: 登録APIから返戻された画像ID。
+                    image_path:
+                      type: string
+                      description: 登録APIで指定した画像パス。
+                    image_tag:
+                      type: string
+                      description: 登録APIで指定した画像タグ。未指定の場合は空。
+        "401":
+          description: "認証エラー"
+        "404":
+          description: 登録されている画像なし
+        "500":
+          description: アプリケーションエラー
+
+  /imagedetails:
+    get:
+      summary: 学習画像 詳細取得
+      description: |
+        画像IDまたは画像タグを指定し、登録された画像の情報をJSON形式で取得する。
+        両方指定、無指定はエラーとなる。
+      parameters:
+        - $ref: "#/components/parameters/ParamId"
+        - $ref: "#/components/parameters/ParamTag"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: "object"
+                  properties:
+                    image_id:
+                      type: integer
+                      description: 登録APIから返戻された画像ID。
+                    image_path:
+                      type: string
+                      description: 登録APIで指定した画像パス。
+                    group:
+                      type: string
+                      enum:
+                        - good
+                        - bad
+                        - mask
+                      description: |
+                        画像種別<br>
+                          - 異常なし: `good`<br>
+                          - 異常あり: `bad`<br>
+                          - マスク画像: `mask`
+                    image_tag:
+                      type: string
+                      description: 登録APIで指定した画像タグ。未指定の場合は空。
+        "400":
+          description: "不正リクエスト"
+        "401":
+          description: "認証エラー"
+        "404":
+          description: 対象画像なし
+        "500":
+          description: "アプリケーションエラー"
+
+  /delimage:
+    delete:
+      summary: 学習画像 削除
+      description: 画像IDのリストまたはタグを指定し、画像情報をプロダクト管理下から削除する。<br>両方指定、無指定はエラーとなる。
+      requestBody:
+        description: 画像IDまたはタグのどちらか一つ
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/ObjectArray"
+                - $ref: "#/components/schemas/ObjectString"
+      responses:
+        "200":
+          description: 成功
+        "400":
+          description: 不正リクエスト
+        "401":
+          description: "認証エラー"
+        "404":
+          description: 削除対象なし
+        "500":
+          description: アプリケーションエラー
+
+  /train:
+    post:
+      summary: 学習
+      description: 入力画像パスおよびパラメータを受け取り学習を行う。
+      requestBody:
+        description: |
+          画像IDリストまたは画像タグ、モデルタグ、学習パラメータをリクエストする。<br>
+          画像IDリストと画像タグは両方指定するとエラーとなる。
+        content:
+          application/json:
+            schema:
+              type: object
+              oneOf:
+                - required:
+                    - "image_id"
+                - required:
+                    - "image_tag"
+              properties:
+                image_id:
+                  type: "array"
+                  items:
+                    type: integer
+                  description: 登録APIから返戻された画像ID。
+                image_tag:
+                  type: string
+                  description: 登録APIで指定した画像タグ。
+                model_tag:
+                  type: string
+                  description: |
+                    モデルを管理する際に使用可能なタグ。学習により生成されるモデルへ付与される。<br>
+                    ユーザが任意の文字列を指定可能。<br>
+                    モデルとタグが一対一となるよう、ユニークな文字列にする必要がある。重複するとエラーとなる。<br>
+                parameters:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: 学習時などの設定。指定可能な項目は、各モデルの設定項目に依存する。
+      responses:
+        "200":
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: 学習により生成されたモデルのID。推論時に用いるモデルを指定する際にこの値が使用される。
+        "400":
+          description: 不正リクエスト
+        "401":
+          description: "認証エラー"
+        "500":
+          description: アプリケーションエラー
+
+  /listmodels:
+    get:
+      summary: 学習済みモデル一覧取得
+      description: 学習済みモデルの一覧を取得する。
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    model_id:
+                      type: integer
+                      description: 学習APIで返戻されたモデルID。
+                    tag:
+                      type: string
+                      description: 学習APIで指定したモデルタグ。
+                    created:
+                      type: string
+                      description: モデルの作成日付。
+        "401":
+          description: "認証エラー"
+        "500":
+          description: アプリケーションエラー
+
+  /modeldetails:
+    get:
+      summary: 学習済みモデル詳細取得
+      description: モデルIDまたはタグを指定し、学習済みモデル情報を取得する。
+      parameters:
+        - name: model_id
+          description: 学習APIで返戻されたモデルID。
+          in: query
+          schema:
+            type: string
+        - name: tag
+          description: 学習APIで指定したモデルタグ。
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  image_ids:
+                    type: array
+                    description: 登録APIから返戻された画像IDのリスト。
+                    items:
+                      type: integer
+                  tag:
+                    type: string
+                    description: 学習APIで指定したモデルタグ。
+                  parameters:
+                    type: object
+                    description: 学習APIで指定したパラメータのキーバリューペアのリスト。
+                    additionalProperties:
+                      type: string
+                  created:
+                    type: string
+                    description: モデルの作成日付。
+        "400":
+          description: 不正リクエスト
+        "401":
+          description: "認証エラー"
+        "500":
+          description: アプリケーションエラー
+
+  /delmodel:
+    delete:
+      summary: 学習済みモデル削除
+      description: モデルIDまたはタグのリストを指定し、学習済みモデルを削除する。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                oneOf:
+                  - type: integer
+                  - type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: 不正リクエスト
+        "401":
+          description: "認証エラー"
+        "500":
+          description: アプリケーションエラー
+
+  /servemodel:
+    post:
+      summary: モデルサービング
+      description: 指定したモデルを配置し、推論リクエストを待ち受ける。
+      requestBody:
+        description: モデルID、タグはどちらか一つ。両方指定するとエラーとなる。
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/ObjectModelAdditionalProp"
+                - $ref: "#/components/schemas/ObjectTagAdditionalProp"
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: 不正リクエスト
+        "401":
+          description: "認証エラー"
+        "500":
+          description: アプリケーションエラー
+
+  /unservemodel:
+    delete:
+      summary: モデル登録解除
+      description: 指定したモデルの配置を取り消す。<br>モデルID、タグはどちらか一つ。両方指定するとエラーとなる。
+      parameters:
+        - name: model_id
+          description: 学習APIで返戻されたモデルID。
+          in: query
+          schema:
+            type: integer
+        - name: tag
+          description: |
+            学習APIで指定したモデルタグ。<br>
+            `ALL` を指定した場合、すべてのモデル登録を解除する。
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: 不正リクエスト
+        "401":
+          description: "認証エラー"
+        "500":
+          description: アプリケーションエラー
+
+  /predict:
+    post:
+      summary: 推論
+      description: |
+        リクエストされた画像に対する推論を行い、結果を返す。
+
+        レスポンスとは別に、指定された出力パスへヒートマップなどを出力する。<br>
+        出力パスや項目は `parameters` で指定可能。
+      requestBody:
+        description: モデルID、タグはどちらか一つ。パラメータは省略可能。
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model_id:
+                  description: 学習APIで返戻されたモデルID。
+                  type: integer
+                tag:
+                  description: 学習APIで指定したモデルタグ。
+                  type: string
+                image_paths:
+                  type: array
+                  items:
+                    type: string
+                  description: |
+                    画像ファイルパスのリスト。
+                      - 推論に用いる画像はプロダクト管理対象外となる。<br>
+                        そのため、プロダクトからの相対ファイルパスを渡す必要がある。<br>
+                        Docker コンテナを使用している場合、コンテナから見えるパスである必要がある。
+                      - 画像ファイルフォーマット: PNG
+                      - 画像サイズ: 学習時と同一サイズ推奨 (それ以外のサイズも入力可能だが性能が劣化する可能性あり)
+                save:
+                  description: |
+                    推論結果をDBへ保存する。
+
+                    保存したい場合、True を指定。<br>
+                    何も指定しない場合、保存されない。
+                  type: boolean
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    pred_score:
+                      description: |
+                        入力画像の異常度を示す数値。
+                      type: number
+                    image_threshold:
+                      description: |
+                        `pred_score` の正常と異常を切り分けるしきい値。
+                        この数値以上が異常と判断される。
+                      type: number
+                    pred_score_norm:
+                      description: |
+                        `pred_score` を正規化した数値。
+                        入力画像の異常度を `0.0` - `1.0` の範囲で示す。
+                        数値が大きいほど異常とみなす。
+                      type: number
+                    image_threshold_norm:
+                      description: |
+                        `pred_score_norm` の正常と異常を切り分けるしきい値。
+                        `0.0` - `1.0` の範囲で指定する。
+                        この数値以上が異常と判断される。
+                      type: number
+        "400":
+          description: 不正リクエスト
+        "401":
+          description: "認証エラー"
+        "500":
+          description: アプリケーションエラー
+
+  /listresults:
+    get:
+      summary: 推論結果 一覧取得
+      description: 推論結果の一覧を取得する。
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  type: "object"
+                  properties:
+                    inference_id:
+                      type: integer
+                      description: 推論ごとに生成されるID。
+                    image_path:
+                      type: string
+                      description: 推論に用いた画像パス。
+        "401":
+          description: "認証エラー"
+        "404":
+          description: 推論結果なし
+        "500":
+          description: アプリケーションエラー
+
+  /getresult:
+    get:
+      summary: 推論結果 詳細取得
+      description: 推論IDを指定し、推論結果の情報を取得する。
+      parameters:
+        - name: inference_id
+          description: 推論ごとに生成されるID。
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  inference_id:
+                    type: integer
+                    description: 推論ごとに生成されるID。
+                  image_path:
+                    type: string
+                    description: 推論に用いた画像パス。
+                  serve_id:
+                    type: integer
+                    description: モデルサーブごとに生成されるID。
+                  result_json:
+                    type: object
+                    description: 推論結果のJSONオブジェクト。
+                  result_path:
+                    type: string
+                    description: 推論結果の出力パス。
+                  infered:
+                    type: string
+                    description: 推論日付。
+        "401":
+          description: "認証エラー"
+        "404":
+          description: 推論結果が見つからない
+        "500":
+          description: アプリケーションエラー
+
+  /delresult:
+    delete:
+      summary: 推論結果削除
+      description: 指定したモデルの配置を取り消す。<br>モデルID、タグはどちらか一つ。両方指定するとエラーとなる。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                inference_id:
+                  type: integer
+                  description: 推論ごとに生成されるID。
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: "認証エラー"
+        "404":
+          description: 推論結果が見つからない
+        "500":
+          description: アプリケーションエラー
+
+components:
+  schemas:
+    ObjectArray:
+      type: object
+      properties:
+        image_id:
+          description: 登録APIから返戻された画像ID。
+          type: array
+          items:
+            type: integer
+    ObjectString:
+      type: object
+      properties:
+        image_tag:
+          description: 登録APIで指定した画像タグ。未指定の場合は空。
+          type: string
+    ObjectModelAdditionalProp:
+      type: object
+      properties:
+        model_id:
+          description: 学習APIで返戻されたモデルID。
+          type: integer
+        parameters:
+          description: 推論時の設定。指定可能な項目は、各モデルの設定項目に依存する。
+          type: object
+          additionalProperties:
+            type: string
+    ObjectTagAdditionalProp:
+      type: object
+      properties:
+        tag:
+          description: 学習APIで指定したモデルタグ。
+          type: string
+        parameters:
+          description: 推論時の設定。指定可能な項目は、各モデルの設定項目に依存する。
+          type: object
+          additionalProperties:
+            type: string
+  parameters:
+    ParamId:
+      name: "image_id"
+      description: 登録APIから返戻された画像ID。
+      in: "query"
+      schema:
+        type: "string"
+    ParamTag:
+      name: "image_tag"
+      description: 登録APIで指定した画像タグ。未指定の場合は空。
+      in: "query"
+      schema:
+        type: "string"

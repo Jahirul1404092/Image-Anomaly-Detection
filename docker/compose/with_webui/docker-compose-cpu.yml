@@ -1,0 +1,28 @@
+version: '3'
+services:
+  webui:
+    container_name: visee-webui
+    ports:
+      - "3000:3000"
+    image: hamacho-webui:1.0.0-prod
+    depends_on:
+      - core
+    environment:
+      - MOUNT_DIR=${HOST_DATA_DIR_WEBUI_PATH}
+
+  core:
+    ports:
+      - "5000:5000"
+    image: hamacho:v1.6.0-prod-api-obfuscated
+    container_name: visee-anodet-core
+    volumes:
+      - ${APP_DATA_MOUNT_PATH}
+      - ${RESULTS_MOUNT_PATH}
+      - ${MODELDATA_MOUNT_PATH}
+      - ${LIECENSE_MOUNT_PATH}
+    environment:
+      - HOST_DATA_DIR=${HOST_DATA_DIR_PATH}
+      - BASE_DATA_DIR=${BASE_DATA_DIR_PATH}
+      - DBPATH=${DBPATH}
+      - PREDICTION_MODE=${SYNC_MODE}
+      - PORT=${PORT}

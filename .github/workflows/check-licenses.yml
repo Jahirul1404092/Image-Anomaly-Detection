@@ -1,0 +1,40 @@
+name: Check Python package licenses
+
+on:
+  push:
+  # 特定のブランチでのみ実行する場合は以下のように指定
+   branches:
+     - develop
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check-licenses:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install poetry
+          poetry install --without dev,docs,test,api --no-interaction --no-ansi --no-root
+          pip uninstall -y poetry
+
+      - name: Install Check licenses module
+        run: |
+          pip install pipdeptree pip-licenses
+
+      - name: Check licenses
+        run: |
+          pip-licenses --with-urls --with-description
+          #pipdeptree --warn silence --json | jq '.[] | {key, value: .dependencies} | select(.value != null)'
+          pipdeptree
+          

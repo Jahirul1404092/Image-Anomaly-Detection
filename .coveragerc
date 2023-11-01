@@ -1,0 +1,10 @@
+[report]
+# the following files are not needed in the coverage report since we
+# are not using them
+omit = 
+    ./hamacho/demo_inference.py
+    ./hamacho/core/utils/profilers/cprofiler.py
+    ./hamacho/plug_in/models/components/dimensionality_reduction/pca.py
+    ./hamacho/plug_in/models/components/stats/kde.py
+    ./hamacho/core/deploy/inferencers/openvino.py
+    ./hamacho/core/utils/metrics/optimal_f1.py

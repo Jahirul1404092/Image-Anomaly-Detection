@@ -1,0 +1,19 @@
+conda create -n Hamacho python=3.8.10
+conda activate hamacho
+pip3 install --upgrade torch==1.12.1 torchvision==0.13.1 torchaudio --extra-index-url https://download.pytorch.org/whl/cu113
+
+#download the anomaly_detection_core_hamacho repository from chowagiken github
+#goto the sharepoint link-> v1.4-> download the following wheel file and place it in anomaly_detection_core_hamacho->dist directory then run the following command
+pip install dist/hamacho-1.4.0-py3-none-any.whl
+#place the dataset in anomaly_detection_core_hamacho->data->inferece
+##place the dataset in anomaly_detection_core_hamacho->data->train
+##place the dataset in anomaly_detection_core_hamacho->data
+cd C:..>../anomaly_detection_core_hamacho
+
+#train model
+hamacho train --with-mask-label --task-type segmentation --model patchcore --category Potato
+python hamacho\main.py train --with-mask-label --task-type segmentation --model patchcore --category Potato
+
+#inferrence
+python hamacho\main.py inference --image-path "data\Potato" --config-path "results\Potato\patchcore\config.yaml"
+python hamacho\main.py inference --image-path "data\Potato\bad" --config-path "results\Potato\patchcore\config.yaml"
